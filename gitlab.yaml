@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-deployment
+spec:
+  replicas: 1
+  selector:
+     matchLabels:
+       app: gitlab
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: In
+                values:
+                - kubernetdevnode1
+      containers:
+      - name: gitlab
+        image: gitlab/gitlab-ce:latest
+        resources:
+          limits:
+            memory: "3Gi"
+            cpu: 2
+          requests:
+            memory: "1Gi"
+            cpu: 1
+        ports:
+        - name: ssl
+          containerPort: 443
+        - name: http
+          containerPort: 80
+        - name: ssh
+          containerPort: 22
+        env:
+        - name: GITLAB_OMNIBUS_CONFIG
+          value: "external_url 'http://kubernetqa.uksouth.cloudapp.azure.com:3000/';"
+        volumeMounts:
+        - name: gitlab-data
+          mountPath: /var/opt/gitlab
+        - name: gitlab-config
+          mountPath: /etc/gitlab
+        - name: gitlab-logs
+          mountPath: /var/log/gitlab
+      volumes:
+      - name: gitlab-data
+        persistentVolumeClaim:
+          claimName: gitlab-data-pvc
+      - name: gitlab-config
+        persistentVolumeClaim:
+          claimName: gitlab-config-pvc
+      - name: gitlab-logs
+        persistentVolumeClaim:
+          claimName: gitlab-logs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab-service
+spec:
+  selector:
+    app: gitlab
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: LoadBalancer
