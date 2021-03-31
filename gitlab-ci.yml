@@ -1,0 +1,72 @@
+variables:
+  NUGET_PATH: 'C:\Tools\nuget.exe'
+  MSBUILD_PATH: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin\msbuild.exe'
+  PROJECT_NAME: 'Weaving'
+  PROJECT_ID: 'Weaving'
+
+stages:
+  - build
+  - release
+  - deploy
+
+build_job:
+  stage: build
+  only:
+    - branches
+  tags:
+    - windows
+  script:
+    - 'nuget restore'
+    - 'msbuild WeavingProdCompanyBase.sln /nologo /nr:false /p:Configuration=Release /p:DeployOnBuild=true'
+    - 'Get-ChildItem -Path ".\WeavingProdCompanyBase\obj\Release\Package\PackageTmp" -Recurse |  Move-Item -Destination ".\drop"'
+    - 'cd .\drop'
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - '.\drop'
+release:
+  image: h3abdullah/semantic-release:latest
+  stage: release
+  script:
+     - zip="$PROJECT_NAME"'.zip'
+    #  - zip -r $zip *
+     - cd drop; zip -r ../"$zip" *; cd ..
+     - npx semantic-release
+     - version=$(cat ".version")
+     - echo "BUILD_VERSION=$version" >> build.env
+     - header="PRIVATE-TOKEN:$GITLAB_TOKEN"
+    #  - header="JOB-TOKEN:$CI_JOB_TOKEN"
+     - url="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PROJECT_NAME}/${version}/${PROJECT_NAME}-${version}.zip"
+     - curl --header $header --upload-file $zip --url $url
+  only:
+    refs:
+      - master
+  artifacts:
+    reports:
+      dotenv: build.env
+deploy:
+  stage: deploy
+  only:
+    - branches
+  tags:
+    - windows
+  needs:
+    - job: release
+      artifacts: true
+  script:
+    - $org = 'prime-ledge'
+    - $repo = 'Weaving'
+    - $project_id = 6
+    - $tag = $env:BUILD_VERSION
+    - echo $tag
+    - $token = "sE7W5qQ9qLcH6VcyyQ8U"
+    - $pool_name = 'testing.h3solution.net'
+    - $site_name = 'testing.h3solution.net'
+    - $packagepath = 'C:\H3solution\Testing'
+    - $skip_backup = $true
+    - $user = "r16rk4u17-3\administrator"
+    - $pass = ConvertTo-SecureString "3Hu@s6!h3cF.." -AsPlainText -Force
+    - $cred =  New-Object -TypeName PSCredential -ArgumentList $user, $pass
+    - Invoke-WebRequest -Headers @{"PRIVATE-TOKEN" = $token} -Uri http://192.168.1.80/api/v4/projects/5/repository/files/cd.ps1/raw?ref=master -OutFile cd.ps1
+    - Set-Item WSMan:\localhost\Client\TrustedHosts -Value "*" -Force
+    - Invoke-Command -FilePath cd.ps1 -ArgumentList ($pool_name, $site_name,$packagepath,$token,$org,$repo,$tag,$skip_backup,$project_id)  -ComputerName 173.208.166.138 -Credential $cred
