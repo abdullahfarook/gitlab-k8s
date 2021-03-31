@@ -63,10 +63,11 @@ deploy:
     - $pool_name = 'testing.h3solution.net'
     - $site_name = 'testing.h3solution.net'
     - $packagepath = 'C:\H3solution\Testing'
+    - $external_url = '<gitlab_static_ip>'
     - $skip_backup = $true
     - $user = "r16rk4u17-3\administrator"
     - $pass = ConvertTo-SecureString "3Hu@s6!h3cF.." -AsPlainText -Force
     - $cred =  New-Object -TypeName PSCredential -ArgumentList $user, $pass
     - Invoke-WebRequest -Headers @{"PRIVATE-TOKEN" = $token} -Uri http://192.168.1.80/api/v4/projects/5/repository/files/cd.ps1/raw?ref=master -OutFile cd.ps1
     - Set-Item WSMan:\localhost\Client\TrustedHosts -Value "*" -Force
-    - Invoke-Command -FilePath cd.ps1 -ArgumentList ($pool_name, $site_name,$packagepath,$token,$org,$repo,$tag,$skip_backup,$project_id)  -ComputerName 173.208.166.138 -Credential $cred
+    - Invoke-Command -FilePath cd.ps1 -ArgumentList ($pool_name, $site_name,$packagepath,$token,$org,$repo,$tag,$skip_backup,$project_id,$external_url)  -ComputerName 173.208.166.138 -Credential $cred
